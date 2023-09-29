@@ -13,16 +13,16 @@ export const cluster = new Command("cluster");
 
 cluster
   .version("0.0.1", "-v, --vers", "output the current version")
-  .argument("<owner>", "the id of the widget")
+  .argument("<owner>", "the address of the cluster owner")
   .requiredOption(
     "-o, --operators <operators>",
-    "comma separated list of operator ids",
+    "comma separated list of ids of operators part of the cluster",
     commaSeparatedList
   ) // an required option flag, this will be in options.o
   .action(async (owner, options, command) => {
     console.log(figlet.textSync("SSV Cluster Snapshot"));
     updateSpinnerText(
-      `Getting cluster for owner ${owner} and operators ${options.operators}\n`
+      `Getting cluster snapshot for owner ${owner} and operators ${options.operators}\n`
     );
     await getClusterSnapshot(owner, options.operators);
     spinnerSuccess();
@@ -33,14 +33,13 @@ async function getClusterSnapshot(owner: string, operators: number[]) {
   try {
     axios(getGraphQLOptions(owner, operators)).then((response) => {
       if (response.status !== 200) throw Error("Request did not return OK");
-      if (response.data.data.clusters.length !== 1)
-        throw Error("Request returned multiple clusters");
-    
-      let cluster = response.data.data.clusters.at(0)
-      const {id, lastUpdateBlockNumber, ...clusterSnapshot} = cluster;
-      console.log(`Cluster snapshot:\n\n`)
+      if (!response.data.data.cluster) throw Error("Response is empty");
+
+      let cluster = response.data.data.cluster;
+      const { id, lastUpdateBlockNumber, ...clusterSnapshot } = cluster;
+      console.log(`Cluster snapshot:\n\n`);
       console.log(JSON.stringify(Object.values(clusterSnapshot)));
-      console.log(`\nLast updated at block: ${cluster.lastUpdateBlockNumber}.`)
+      console.log(`\nLast updated at block: ${cluster.lastUpdateBlockNumber}.`);
     });
   } catch (err) {
     spinnerError();
@@ -58,7 +57,7 @@ const getGraphQLOptions = (owner: string, operators: number[]) => {
   const requestBody = {
     query: `
       query clusterSnapshot($clusterId: String!) {
-        clusters(where: {id: $clusterId}) {
+        cluster(id: $clusterId) {
           id
           validatorCount
           networkFeeIndex
