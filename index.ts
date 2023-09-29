@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import axios from "axios";
 import { Command } from 'commander';
 
 import { spinnerError, stopSpinner } from "./src/spinner";
@@ -29,5 +28,3 @@ async function main() {
 }
 console.log() // log a new line so there is a nice space
 main();
-
-// https://api.studio.thegraph.com/query/53804/ssv-subgraph/version/latest
