@@ -4,12 +4,15 @@ import { Command } from 'commander';
 import { spinnerError, stopSpinner } from "./src/spinner";
 import { nonce } from "./src/commands/ssv-nonce";
 import { cluster } from "./src/commands/ssv-cluster";
+import { stats } from "./src/commands/ssv-stats";
+
 const program = new Command();
 program.argument("<owner>", "the id of the widget")
 .description('A simple demonstrative command line tool to obtain SSV cluster data through a Subgraph API')
 .version('0.0.1')
 .addCommand(nonce)
-.addCommand(cluster);
+.addCommand(cluster)
+.addCommand(stats);
 
 
 process.on('unhandledRejection', function (err: Error) { // listen for unhandled promise rejections
