@@ -11,21 +11,20 @@ import axios from "axios";
 import { Octokit } from "octokit";
 
 export const stats = new Command("stats");
-// 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
-// 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
+// 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7
 stats
   .argument("<token>", "GitHub api token")
   // .option("-f, --format <format>", "the format of the widget") // an optional flag, this will be in options.f
   .action(async (token, options) => {
     console.log(figlet.textSync("SSV Stats"));
     // console.debug(`using GH token ${token}`);
-    updateSpinnerText("Fetching developer activity stats for SSV")
+    updateSpinnerText("Fetching developer activity stats for SSV");
     spinnerInfo(`Getting registerValidator requests per address\n`);
     const validatorCount = await getRegisterValidator();
-    
+
     spinnerInfo(`Getting stats for ssv-keys repo\n`);
     const keysStats = await getSSVKeysStats(token);
-    
+
     spinnerInfo(`Getting stats for ssv-scanner repo\n`);
     const scannerStats = await getSSVScannerStats(token);
 
@@ -35,7 +34,7 @@ stats
     spinnerSuccess();
 
     console.log(
-      `A total of ${validatorCount?.accountsWithValidators.length} addresses has created at least one validator on SSV`
+      `A total of ${validatorCount?.accountsWithValidators} addresses has created at least one validator on SSV`
     );
     console.log(
       `And the average number of validators created per address is: ${validatorCount?.averageValidatorsPerAccount}`
@@ -53,41 +52,27 @@ stats
 
 async function getRegisterValidator() {
   try {
-    const response = await axios(getGraphQLOptions());
+    let validatorsAdded: { owner: string }[] = [];
+    let skip = 0;
+    while (true) {
+      const response = await axios(getGraphQLOptions(skip));
+      console.log(`Got ${response.status} response.`);
+      if (response.status !== 200) throw Error("Request did not return OK");
+      if (response.data.data.validatorAddeds.length == 0) break;
+      
+      validatorsAdded = [...validatorsAdded, ...response.data.data.validatorAddeds];
+      console.log(`Obtained ${validatorsAdded.length} items.`);
+      skip += 1000;
+    }
 
-    // console.log(response)
-    if (response.status !== 200) throw Error("Request did not return OK");
-    if (!response.data.data.accounts) throw Error("Response is empty");
-
-    let accounts = response.data.data.accounts;
-    // console.debug(`Found  total of ${accounts.length} addresses`);
-
-    let accountsWithValidators = accounts.filter(
-      (account: {
-        validators: {
-          id: string;
-        }[];
-      }) => {
-        return account.validators.length > 0;
-      }
+    let uniqueOwners = new Set(
+      validatorsAdded.map((event: { owner: any }) => event.owner)
     );
 
-    let totalValidatorsCreated = 0;
-    accounts.forEach(
-      (account: {
-        validators: {
-          id: string;
-        }[];
-      }) => {
-        totalValidatorsCreated += account.validators.length;
-      }
-    );
-    let averageValidatorsPerAccount =
-      totalValidatorsCreated / accountsWithValidators.length;
     return {
-      accountsWithValidators: accountsWithValidators,
-      totalValidatorsCreated: totalValidatorsCreated,
-      averageValidatorsPerAccount: averageValidatorsPerAccount,
+      accountsWithValidators: uniqueOwners.size,
+      totalValidatorsCreated: validatorsAdded.length,
+      averageValidatorsPerAccount: validatorsAdded.length / uniqueOwners.size,
     };
   } catch (err) {
     spinnerError();
@@ -96,29 +81,26 @@ async function getRegisterValidator() {
   }
 }
 
-const getGraphQLOptions = () => {
+const getGraphQLOptions = (skip: number) => {
   const headers = {
     "content-type": "application/json",
   };
-
+// where: {blockTimestamp_lte: "1696032000"} // 29/09/2023
   const requestBody = {
     query: `
-        query clusterSnapshot {
-            accounts {
-                id
-                nonce
-                validators{
-                    id
-                }
-            }
-        }`,
+      query getValidatorAddedEvents($skip: Int!) {
+        validatorAddeds(skip: $skip, first: 1000, orderBy: blockNumber) {
+          owner
+        }
+      }`,
+    variables: { skip: skip },
   };
 
   const graphQLOptions = {
     method: "POST",
     url:
       process.env.NEXT_PUBLIC_LENS_API_URL ||
-      "https://api.studio.thegraph.com/query/53804/ssv-subgraph/v0.0.9",
+      "https://api.thegraph.com/subgraphs/name/raekwoniii/ssv-goerli",
     headers,
     data: requestBody,
   };
