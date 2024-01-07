@@ -17,19 +17,21 @@ stats
   // .option("-f, --format <format>", "the format of the widget") // an optional flag, this will be in options.f
   .action(async (token, options) => {
     console.log(figlet.textSync("SSV Stats"));
+    let t = process.env.GH_API_TOKEN || "asd"
+    console.log(t)
     // console.debug(`using GH token ${token}`);
     updateSpinnerText("Fetching developer activity stats for SSV");
     spinnerInfo(`Getting registerValidator requests per address\n`);
     const validatorCount = await getRegisterValidator();
 
     spinnerInfo(`Getting stats for ssv-keys repo\n`);
-    const keysStats = await getSSVKeysStats(token);
+    const keysStats = await getSSVKeysStats(t);
 
     spinnerInfo(`Getting stats for ssv-scanner repo\n`);
-    const scannerStats = await getSSVScannerStats(token);
+    const scannerStats = await getSSVScannerStats(t);
 
     spinnerInfo(`Getting stats for ssv-dkg repo\n`);
-    const dkgStats = await getSSVDKGStats(token);
+    const dkgStats = await getSSVDKGStats(t);
 
     spinnerSuccess();
 
@@ -56,7 +58,7 @@ async function getRegisterValidator() {
     let skip = 0;
     while (true) {
       const response = await axios(getGraphQLOptions(skip));
-      console.log(`Got ${response.status} response.`);
+      // console.log(`Got ${response.status} response.`);
       if (response.status !== 200) throw Error("Request did not return OK");
       if (response.data.data.validatorAddeds.length == 0) break;
       
@@ -99,7 +101,7 @@ const getGraphQLOptions = (skip: number) => {
   const graphQLOptions = {
     method: "POST",
     url:
-      process.env.NEXT_PUBLIC_LENS_API_URL ||
+      process.env.SUBGRAPH_ENDPOINT ||
       "https://api.thegraph.com/subgraphs/name/raekwoniii/ssv-goerli",
     headers,
     data: requestBody,
