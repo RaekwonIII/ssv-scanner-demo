@@ -33,7 +33,10 @@ async function getClusterSnapshot(owner: string, operators: number[]) {
   try {
     axios(getGraphQLOptions(owner, operators)).then((response) => {
       if (response.status !== 200) throw Error("Request did not return OK");
-      if (!response.data.data.cluster) throw Error("Response is empty");
+      if (!response.data.data.cluster) {
+        console.error("Response is empty, verify that the cluster exists");
+        return;
+      }
 
       let cluster = response.data.data.cluster;
       const { id, lastUpdateBlockNumber, ...clusterSnapshot } = cluster;
@@ -49,37 +52,29 @@ async function getClusterSnapshot(owner: string, operators: number[]) {
 }
 
 const getGraphQLOptions = (owner: string, operators: number[]) => {
-  let clusterId = `${owner.toLowerCase()}-${operators.join("-")}`;
-  const headers = {
-    "content-type": "application/json",
-  };
 
-  const requestBody = {
-    query: `
-      query clusterSnapshot($clusterId: String!) {
-        cluster(id: $clusterId) {
-          id
-          validatorCount
-          networkFeeIndex
-          index
-          active
-          balance
-          lastUpdateBlockNumber
-        }
-      }`,
-    variables: { clusterId: clusterId },
-  };
-
-  const graphQLOptions = {
+  return {
     method: "POST",
     url:
-      process.env.NEXT_PUBLIC_LENS_API_URL ||
-      "https://api.studio.thegraph.com/query/53804/ssv-subgraph/version/latest",
-    headers,
-    data: requestBody,
+      process.env.SUBGRAPH_API ||
+      "https://api.studio.thegraph.com/query/71118/ssv-network-holesky/version/latest",
+    headers: {
+      "content-type": "application/json",
+    },
+    data: {
+      query: `
+        query clusterSnapshot($clusterId: String!) {
+          cluster(id: $clusterId) {
+            validatorCount
+            networkFeeIndex
+            index
+            active
+            balance
+          }
+        }`,
+      variables: { clusterId: `${owner.toLowerCase()}-${operators.join("-")}` },
+    },
   };
-
-  return graphQLOptions;
 };
 
 function commaSeparatedList(value: string, dummyPrevious: any) {
