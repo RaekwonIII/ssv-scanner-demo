@@ -11,43 +11,46 @@ import axios from "axios";
 import { Octokit } from "octokit";
 
 export const stats = new Command("stats");
-// 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7
 stats
-  .argument("<token>", "GitHub api token")
-  // .option("-f, --format <format>", "the format of the widget") // an optional flag, this will be in options.f
-  .action(async (token, options) => {
-    console.log(figlet.textSync("SSV Stats"));
-    let t = process.env.GH_API_TOKEN || "asd"
-    console.log(t)
-    // console.debug(`using GH token ${token}`);
+  // .argument("<token>", "GitHub api token")
+  .action(async (options) => {
+    console.info(figlet.textSync("SSV Stats"));
+    if (!process.env.GH_API_TOKEN) {
+      console.error("No GitHub token found, exiting")
+      return
+    }
+
+    let token = process.env.GH_API_TOKEN
+    
+    console.debug(`using GH token ${token}`);
     updateSpinnerText("Fetching developer activity stats for SSV");
     spinnerInfo(`Getting registerValidator requests per address\n`);
-    const validatorCount = await getRegisterValidator();
+    // const validatorCount = await getRegisterValidator();
 
     spinnerInfo(`Getting stats for ssv-keys repo\n`);
-    const keysStats = await getSSVKeysStats(t);
+    const keysStats = await getSSVKeysStats(token);
 
     spinnerInfo(`Getting stats for ssv-scanner repo\n`);
-    const scannerStats = await getSSVScannerStats(t);
+    const scannerStats = await getSSVScannerStats(token);
 
     spinnerInfo(`Getting stats for ssv-dkg repo\n`);
-    const dkgStats = await getSSVDKGStats(t);
+    const dkgStats = await getSSVDKGStats(token);
 
     spinnerSuccess();
 
-    console.log(
-      `A total of ${validatorCount?.accountsWithValidators} addresses has created at least one validator on SSV`
-    );
-    console.log(
-      `And the average number of validators created per address is: ${validatorCount?.averageValidatorsPerAccount}`
-    );
-    console.log(
+    // console.info(
+    //   `A total of ${validatorCount?.accountsWithValidators} addresses has created at least one validator on SSV`
+    // );
+    // console.info(
+    //   `And the average number of validators created per address is: ${validatorCount?.averageValidatorsPerAccount}`
+    // );
+    console.info(
       `Total clones of ssv-keys repo: ${keysStats?.count}, by ${keysStats?.uniques} unique users`
     );
-    console.log(
+    console.info(
       `Total clones of ssv-scanner repo: ${scannerStats?.count}, by ${scannerStats?.uniques} unique users`
     );
-    console.log(
+    console.info(
       `Total clones of ssv-dkg repo: ${dkgStats?.count}, by ${dkgStats?.uniques} unique users`
     );
   });
@@ -60,10 +63,13 @@ async function getRegisterValidator() {
       const response = await axios(getGraphQLOptions(skip));
       // console.log(`Got ${response.status} response.`);
       if (response.status !== 200) throw Error("Request did not return OK");
-      if (response.data.data.validatorAddeds.length == 0) break;
+      if (!response.data.data.validatorAddeds) {
+        console.log(response.data.data)
+        break
+      };
       
       validatorsAdded = [...validatorsAdded, ...response.data.data.validatorAddeds];
-      console.log(`Obtained ${validatorsAdded.length} items.`);
+      console.info(`Obtained ${validatorsAdded.length} items.`);
       skip += 1000;
     }
 
@@ -91,7 +97,7 @@ const getGraphQLOptions = (skip: number) => {
   const requestBody = {
     query: `
       query getValidatorAddedEvents($skip: Int!) {
-        validatorAddeds(skip: $skip, first: 1000, orderBy: blockNumber) {
+        validatorAddeds(skip: $skip, first: 1000, orderBy: blockNumber, orderDirection: asc) {
           owner
         }
       }`,
@@ -102,7 +108,7 @@ const getGraphQLOptions = (skip: number) => {
     method: "POST",
     url:
       process.env.SUBGRAPH_ENDPOINT ||
-      "https://api.thegraph.com/subgraphs/name/raekwoniii/ssv-goerli",
+      "https://api.studio.thegraph.com/query/71118/ssv-network-holesky/version/latest",
     headers,
     data: requestBody,
   };
